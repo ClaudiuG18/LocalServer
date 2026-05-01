@@ -5,7 +5,7 @@ app.use(express.json());
 let cmd = {
   cmd: {
     relay: Number,
-    setPoint: Number,
+    setpoint: Number,
     calibTemp: Number,
   },
 };
@@ -15,12 +15,15 @@ let dataStore = {};
 app.post("/api/esp", (req, res) => {
   console.log("Primesc de la ESP", req.body);
 
-  const { id, temp, hum } = req.body;
+  const { id, temp, hum, setpoint, calibTemp, relay } = req.body;
 
   dataStore[id] = {
+    id,
     temp,
     hum,
-    ts: Date.now(),
+    setpoint,
+    calibTemp,
+    relay,
   };
 
   res.json({
@@ -30,15 +33,31 @@ app.post("/api/esp", (req, res) => {
 });
 
 app.post("/api/server", (req, res) => {
-  res.json(dataStore);
-  const { relay, setPoint, calibTemp } = req.body;
-  cmd = {
-    relay,
-    setPoint,
-    calibTemp,
-  };
+  const { id, cmd: incomingCmd } = req.body || {};
 
-  console.log("Primesc comenzi de la app ", req.body);
+  // ✅ Update command if provided
+  if (incomingCmd) {
+    cmd = {
+      cmd: {
+        relay: incomingCmd.relay ?? cmd.cmd.relay,
+        setpoint: incomingCmd.setPoint ?? cmd.cmd.setpoint,
+        calibTemp: incomingCmd.calibTemp ?? cmd.cmd.calibTemp,
+      },
+    };
+
+    console.log("Received command from app:", incomingCmd);
+  }
+
+  // ✅ Return current sensor data + command
+  const result = Object.keys(dataStore).map((roomId) => ({
+    id: roomId,
+    ...dataStore[roomId],
+  }));
+
+  res.json({
+    rooms: result,
+    cmd,
+  });
 });
 
 app.listen(8787, "0.0.0.0", () => {
