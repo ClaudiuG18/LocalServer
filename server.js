@@ -31,7 +31,7 @@ app.post("/api/esp", (req, res) => {
   // salveaza in store cu temp ajustata
   dataStore[id] = {
     id,
-    temp,
+    temp: adjustedTemp,
     hum,
     setpoint: sp,
     calibTemp: calibT,
