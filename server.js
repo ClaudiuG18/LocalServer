@@ -1,10 +1,15 @@
 const express = require("express");
+const cors = require("cors");
 const app = express();
 
+app.use(cors());
 app.use(express.json());
 
 let dataStore = {};
 let cmdStore = {};
+app.get("/api", (req, resp) => {
+  resp.json({ app: "merge" });
+});
 
 app.post("/api/esp", (req, res) => {
   console.log("Primesc de la ESP", req.body);
@@ -66,6 +71,9 @@ app.post("/api/server", (req, res) => {
 
   const rooms = Object.values(dataStore);
 
+  console.log("Rooms trimise la app:", JSON.stringify(rooms)); // ← adauga asta
+  console.log("dataStore:", JSON.stringify(dataStore)); // ← adauga
+  console.log("Rooms:", rooms.length); // ← adauga
   res.json({ rooms, cmd: id ? cmdStore[id] : {} });
 });
 
