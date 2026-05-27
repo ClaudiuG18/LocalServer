@@ -7,6 +7,7 @@ app.use(express.json());
 
 let dataStore = {};
 let cmdStore = {};
+
 app.get("/api", (req, resp) => {
   resp.json({ app: "merge" });
 });
@@ -18,22 +19,19 @@ app.post("/api/esp", (req, res) => {
 
   const espCmd = cmdStore[id] || {};
 
-  // foloseste setpoint/calibTemp din app daca exista, altfel din ESP
-  const sp = espCmd.setpoint ?? setpoint ?? 20;
-  const calibT = espCmd.calibTemp ?? calibTemp ?? 0;
-  const hyst = espCmd.hyst ?? 0.3;
+  const sp = Number(espCmd.setpoint ?? setpoint ?? 20);
+  const calibT = Number(espCmd.calibTemp ?? calibTemp ?? 0);
+  const hyst = Number(espCmd.hyst ?? 0.3);
 
-  const adjustedTemp = temp + calibT;
+  const adjustedTemp = Number(temp) + calibT;
 
-  // logica termostat cu histereza
   let relayState = dataStore[id]?.relay || 0;
   if (adjustedTemp < sp - hyst) {
-    relayState = 1; // prea frig → porneste
+    relayState = 1;
   } else if (adjustedTemp > sp + hyst) {
-    relayState = 0; // destul de cald → opreste
+    relayState = 0;
   }
 
-  // salveaza in store cu temp ajustata
   dataStore[id] = {
     id,
     temp: adjustedTemp,
@@ -44,14 +42,16 @@ app.post("/api/esp", (req, res) => {
   };
 
   console.log(
-    `ESP ${id} | tempBruta: ${temp} | calibT: ${calibT} | adjustedTemp: ${adjustedTemp.toFixed(1)} | sp: ${sp} | relay: ${relayState}`,
+    `ESP ${id} | tempBruta: ${temp} | calibT: ${calibT} | adjustedTemp: ${adjustedTemp.toFixed(1)} | sp: ${sp} | relay: ${relayState}`
   );
 
   res.json({
     ok: true,
     cmd: {
-      ...espCmd,
       relay: relayState,
+      setpoint: sp,
+      calibTemp: calibT,
+      hyst: hyst,
     },
   });
 });
@@ -61,9 +61,11 @@ app.post("/api/server", (req, res) => {
 
   if (incomingCmd && id) {
     cmdStore[id] = {
-      relay: incomingCmd.relay ?? cmdStore[id]?.relay,
-      setpoint: incomingCmd.setpoint ?? cmdStore[id]?.setpoint,
-      calibTemp: incomingCmd.calibTemp ?? cmdStore[id]?.calibTemp,
+      ...(cmdStore[id] || {}),
+      ...(incomingCmd.relay !== undefined && { relay: incomingCmd.relay }),
+      ...(incomingCmd.setpoint !== undefined && { setpoint: incomingCmd.setpoint }),
+      ...(incomingCmd.calibTemp !== undefined && { calibTemp: incomingCmd.calibTemp }),
+      ...(incomingCmd.hyst !== undefined && { hyst: incomingCmd.hyst }),
     };
 
     console.log(`Command for ${id}:`, cmdStore[id]);
@@ -71,9 +73,10 @@ app.post("/api/server", (req, res) => {
 
   const rooms = Object.values(dataStore);
 
-  console.log("Rooms trimise la app:", JSON.stringify(rooms)); // ← adauga asta
-  console.log("dataStore:", JSON.stringify(dataStore)); // ← adauga
-  console.log("Rooms:", rooms.length); // ← adauga
+  console.log("Rooms trimise la app:", JSON.stringify(rooms));
+  console.log("dataStore:", JSON.stringify(dataStore));
+  console.log("Rooms:", rooms.length);
+
   res.json({ rooms, cmd: id ? cmdStore[id] : {} });
 });
 
